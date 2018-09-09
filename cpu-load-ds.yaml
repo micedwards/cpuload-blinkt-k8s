@@ -1,0 +1,46 @@
+kind: DaemonSet
+apiVersion: extensions/v1beta1
+metadata:
+  name: cpu-load-blinkt-k8s
+  namespace: kube-system
+  labels:
+    app: cpu-load-blinkt
+    tier: master
+spec:
+  selector:
+    matchLabels:
+      name: cpu-load-blinkt
+  template:
+    metadata:
+      labels:
+        name: cpu-load-blinkt
+    spec:
+      serviceAccountName: cpu-load-blinkt-sa
+      nodeSelector:
+        kubernetes.io/hostname: shepherd
+      containers:
+      - name: cpu-load-blinkt
+        image: micedwards/arm-blinkt-cpuload
+        imagePullPolicy: Always
+        lifecycle:
+         preStop:
+           exec:
+             #Hacky way to shut off the lights, otherwise the container won't get SIG$
+             command: ["kill", "-TERM", "1"]
+        volumeMounts:
+        - name: devmem
+          mountPath: /dev/mem
+        - mountPath: /sys
+          name: sys-tree
+        securityContext:
+          privileged: true
+      volumes:
+      - name: devmem
+        hostPath:
+          path: /dev/mem
+      - name: sys-tree
+        hostPath:
+          path: /sys
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
